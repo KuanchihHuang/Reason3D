@@ -121,10 +121,10 @@ Note: this repo currently only supports batch size = 1 for inference.
 ## TODO List
 
 - [x] Release the initial code for 3D referring segmentation task.
-- [ ] Release final version paper.
+- [ ] Release final version paper [Feb. 10].
 - [ ] Release hierarchical mask decoder code.
 - [ ] Release the dataset and code for 3D reasoning segmentation task. 
-- [ ] Release demo and visualization code.
+- [ ] Release demo, post-processing and visualization code.
 - [ ] ...
 
 ## Acknowlegment
