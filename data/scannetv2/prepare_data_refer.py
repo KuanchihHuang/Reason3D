@@ -8,8 +8,13 @@ import multiprocessing as mp
 import numpy as np
 import open3d as o3d
 import plyfile
-import segmentator 
 import torch
+
+try:
+    import segmentator
+except ImportError:
+    print("[WARN] Using segmentator_pytorch as segmentator. Note: The results may be slightly worse.")
+    import segmentator_pytorch as segmentator
 
 # Map relevant classes to {0,1,...,19}, and ignored classes to -100
 remapper = np.ones(150) * (-100)
