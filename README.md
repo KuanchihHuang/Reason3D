@@ -1,4 +1,3 @@
-
 <p align="center">
   <h1 align="center">Reason3D: Searching and Reasoning 3D Segmentation via Large Language Model [3DV 2025]
   </h1>
@@ -64,11 +63,12 @@ Reason3D
 │   │   ├── scans
 ```
 
-Split and preprocess point cloud data
+Split and preprocess point cloud data for 3D referring and 3D reasoning segmentation tasks:
 
 ```
 cd data/scannetv2
-bash prepare_data.sh
+bash prepare_data.sh #Scanrefer
+bash prepare_data_reason.sh #Reason3D
 ```
 
 After running the script, the scannetv2 dataset structure should look like below.
@@ -78,8 +78,11 @@ Reason3D
 │   ├── scannetv2
 │   │   ├── scans
 │   │   ├── train
+│   │   │   ├──XXX_refer.pth
+│   │   │   ├──XXX_reason.pth
 │   │   ├── val
 ```
+You can directly download our preprocessed data [here](), please agree the official license before download it.
 
 ### ScanRefer dataset
 
@@ -93,7 +96,44 @@ Reason3D
 │   │   ├── ScanRefer_filtered_val.json
 ```
 
-### Pretrained Backbone
+### Matterport3D dataset
+
+Please follow the instructions [here](https://niessner.github.io/Matterport/) to access official `download_mp.py` script, run the following in `data/matterport/`:
+```
+python2 download_mp.py -o . --type region_segmentations
+```
+Extract files and organize data as follows:
+```
+Reason3D
+├── data
+│   ├── matterport
+│   │   ├── scans
+│   │   │   ├── 17DRP5sb8fy
+│   │   │   │   ├──region_segmentations
+│   │   │   │   │   ├──region0.ply
+│   │   │   ├── ...
+```
+Process data on Matterport3D dataset for 3D reasoning segmentation task:
+```
+cd data/matterport
+python3 process_mp3d.py
+```
+After running the script, the Matterport3D dataset structure should look like below.
+```
+Reason3D
+├── data
+│   ├── matterport
+│   │   ├── mp3d_data
+│   │   │   ├── XXXXX_regionX.pth
+│   │   │   ├── ...
+```
+You can directly download our preprocessed data [here](), please agree the official license before download it.
+
+### Reason3D dataset
+
+Download Reason3D annotations [here]().
+
+## Pretrained Backbone
 Download [SPFormer](https://github.com/sunjiahao1999/SPFormer) pretrained backbone (or provided by [3D-STMN](https://github.com/sosppxo/3D-STMN)) and move it to checkpoints.
 ```
 mkdir checkpoints
@@ -121,10 +161,10 @@ Note: this repo currently only supports batch size = 1 for inference.
 ## TODO List
 
 - [x] Release the initial code for 3D referring segmentation task.
-- [ ] Release final version paper [Feb. 10].
+- [ ] Release final version paper.
 - [ ] Release hierarchical mask decoder code.
 - [ ] Release the dataset and code for 3D reasoning segmentation task. 
-- [ ] Release demo, post-processing and visualization code.
+- [ ] Release demo and visualization code.
 - [ ] ...
 
 ## Acknowlegment
