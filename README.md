@@ -40,7 +40,7 @@ cd SalesForce-LAVIS
 pip install -e .
 ```
 
-3. Install segmentor from this [repo](https://github.com/Karbo123/segmentator) (used for superpoint construction)
+3. Install segmentor from this [repo](https://github.com/Karbo123/segmentator) (used for superpoint construction). We also provide an alternative PyTorch implementation `segmentator_pytorch.py`, though it may yield slightly lower performance.
 
 
 4. Install pointgroup_ops
@@ -82,7 +82,7 @@ Reason3D
 │   │   │   ├──XXX_reason.pth
 │   │   ├── val
 ```
-You can directly download our preprocessed data [here](), please agree the official license before download it.
+You can directly download our preprocessed data ([train](https://drive.google.com/file/d/1Y41Y6H0To9qB71kUlLISYn4RhvwFe4KZ/view) and [val](https://drive.google.com/file/d/1y9MSXFGh80W46201bbgCoW95go5DJY7k/view)), please agree the official license before download it.
 
 ### ScanRefer dataset
 
@@ -127,11 +127,20 @@ Reason3D
 │   │   │   ├── XXXXX_regionX.pth
 │   │   │   ├── ...
 ```
-You can directly download our preprocessed data [here](), please agree the official license before download it.
+You can directly download our preprocessed data ([mp3d_data](https://drive.google.com/file/d/1OXT_hmv-9eHgqpcl3A0V28y-DfC5v0-y/view)), please agree the official license before download it.
 
 ### Reason3D dataset
 
-Download Reason3D annotations [here]().
+Download Reason3D annotations [here](https://drive.google.com/file/d/1jb-WIaB5Ad4VweBpr1V7GUWKueL_w6l3/view).
+
+```
+Reason3D
+├── data
+│   ├── reason3d
+│   │   ├── reason3d_train.json
+│   │   ├── reason3d_val_mp3d.json
+│   │   ├── reason3d_val_scannet.json
+```
 
 ## Pretrained Backbone
 Download [SPFormer](https://github.com/sunjiahao1999/SPFormer) pretrained backbone (or provided by [3D-STMN](https://github.com/sosppxo/3D-STMN)) and move it to checkpoints.
