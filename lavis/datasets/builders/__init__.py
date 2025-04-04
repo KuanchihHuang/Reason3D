@@ -6,12 +6,13 @@
 """
 
 from lavis.datasets.builders.base_dataset_builder import load_dataset_config
-from lavis.datasets.builders.seg3d_builder import ThreeDReferBuilder
+from lavis.datasets.builders.seg3d_builder import ThreeDReferBuilder, ThreeDReasonBuilder
 
 from lavis.common.registry import registry
 
 __all__ = [
-    "ThreeDReferBuilder"
+    "ThreeDReferBuilder",
+    "ThreeDReasonBuilder"
 ]
 
 

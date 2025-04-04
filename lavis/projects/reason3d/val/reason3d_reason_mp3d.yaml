@@ -1,0 +1,82 @@
+
+
+model:
+  arch: reason3d_t5
+  model_type: pretrain_flant5xl
+  use_grad_checkpoint: False
+  mask_embedding: False
+  point_encoder_cfg:
+    input_channel: 6
+    media: 32
+    normalize_before: True
+    return_blocks: True
+    fix_module: ['input_conv', 'unet', 'output_layer']
+    pretrained: "checkpoints/sp_unet_backbone.pth"  #change it   
+    #pretrained: "checkpoints/spf_scannet_512.pth"  #change it   
+  mask_decoder_cfg:
+    media: 32
+    num_layer: 6
+    d_model: 256
+    d_text: 512
+    nhead: 8
+    hidden_dim: 1024
+    dropout: 0.0
+    activation_fn: 'gelu'
+    attn_mask: True
+  seg_criterion_cfg:
+    loss_weight: [1.0, 1.0, 0.5, 5.0]
+    loss_fun: 'focal'
+  pred_confidence: 0.5
+
+datasets:
+  3d_reason: # name of the dataset builder
+    text_processor:
+        train:
+          name: "blip_question"
+          prompt: ""
+        eval:
+          name: "blip_question"
+    build_info:
+        annotations:
+          train:
+            storage: reason3d/reason3d_train.json
+          test:
+            storage: reason3d/reason3d_val_mp3d.json
+          val:
+            storage: reason3d/reason3d_val_mp3d.json
+
+run:
+  task: 3d_reason_seg
+  # optimizer
+  lr_sched: "linear_warmup_cosine_lr"
+  init_lr: 1e-4
+  min_lr: 1e-5
+  warmup_lr: 1e-8
+  warmup_steps: 1000
+  weight_decay: 0.05
+  max_epoch: 100
+  batch_size_train: 16
+  batch_size_eval: 1
+  num_workers: 4
+  accum_grad_iters: 1
+
+  max_len: 60
+  min_len: 1
+  num_beams: 5
+ 
+  inference_method: "generate"
+
+  seed: 42
+  output_dir: "output/reason3d_reason"
+
+  amp: True
+  #resume_ckpt_path:
+  evaluate: False
+  train_splits: ["train"]
+  valid_splits: ["val"]
+  test_splits: ["test"]
+
+  device: "cuda"
+  world_size: 16
+  dist_url: "env://"
+  distributed: True

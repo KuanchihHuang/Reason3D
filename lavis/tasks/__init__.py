@@ -8,6 +8,7 @@
 from lavis.common.registry import registry
 from lavis.tasks.base_task import BaseTask
 from lavis.tasks.refer_seg_task import ThreeDReferSegTask
+from lavis.tasks.reason_seg_task import ThreeDReasonSegTask
 
 def setup_task(cfg):
     assert "task" in cfg.run_cfg, "Task name must be provided."
@@ -20,4 +21,5 @@ def setup_task(cfg):
 __all__ = [
     "BaseTask",
     "ThreeDReferSegTask",
+    "ThreeDReasonSegTask",
 ]
