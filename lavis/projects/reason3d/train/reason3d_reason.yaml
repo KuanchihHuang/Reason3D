@@ -41,9 +41,9 @@ datasets:
           train:
             storage: reason3d/reason3d_train.json
           test:
-            storage: reason3d/reason3d_val_mp3d.json
+            storage: reason3d/reason3d_val.json
           val:
-            storage: reason3d/reason3d_val_mp3d.json
+            storage: reason3d/reason3d_val.json
 
 run:
   task: 3d_reason_seg

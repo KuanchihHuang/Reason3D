@@ -222,6 +222,7 @@ class ThreeDReasonDataset(BaseDataset):
         object_id = int(data["object_id"])
         object_name = data["object_name"]
         question = data['question']
+        data_type = data['type']
         ann_id = index 
         question_template = random.choice(self.short_question_list)
 
@@ -257,18 +258,17 @@ class ThreeDReasonDataset(BaseDataset):
             'lang_tokens': None,
             'answers': answers,
             "text_input": question,
+            "data_type": data_type,
         }
 
-        return ann_id, scan_id, coord, coord_float, feat, superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens
-    
     def collater(self, batch):
-        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, data_type_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         batch_offsets = [0]
         n_answers = []
         superpoint_bias = 0
 
         for i, data in enumerate(batch):
-            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions = list(data.values())
+            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, data_type = list(data.values())
             
             superpoint = src_superpoint + superpoint_bias
             superpoint_bias = superpoint.max().item() + 1
@@ -288,6 +288,7 @@ class ThreeDReasonDataset(BaseDataset):
             sp_ref_masks.append(sp_ref_mask)
             answerss.extend(answers)
             text_input_list.append(captions)
+            data_type_list.append(data_type)
 
             n_answers.append(len(answers))
 
@@ -321,6 +322,7 @@ class ThreeDReasonDataset(BaseDataset):
             'lang_tokenss': None,
             'lang_masks': None,
             'n_answers': torch.LongTensor(n_answers),
+            'data_types': data_type_list,
         }
 
     def __len__(self):
