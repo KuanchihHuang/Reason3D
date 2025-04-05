@@ -18,6 +18,7 @@
 
 ## 🔥 Update
 - 2025/01/19:  Initial code for 3D referring segmentation has been released.
+- 2025/04/05:  Code and dataset for 3D reasoning segmentation has been released.
 
 ## Overview
 
