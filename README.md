@@ -82,11 +82,11 @@ Reason3D
 │   │   │   ├──XXX_reason.pth
 │   │   ├── val
 ```
-You can directly download our preprocessed data ([train](https://drive.google.com/file/d/1Y41Y6H0To9qB71kUlLISYn4RhvwFe4KZ/view) and [val](https://drive.google.com/file/d/1y9MSXFGh80W46201bbgCoW95go5DJY7k/view)), please agree the official license before download it.
+You can directly download our preprocessed data ([train.zip](https://drive.google.com/file/d/1Y41Y6H0To9qB71kUlLISYn4RhvwFe4KZ/view) and [val.zip](https://drive.google.com/file/d/1y9MSXFGh80W46201bbgCoW95go5DJY7k/view)), please agree the official license before download it.
 
 ### ScanRefer dataset
 
-Download [ScanRefer](https://github.com/daveredrum/ScanRefer) annotations
+Download [ScanRefer](https://github.com/daveredrum/ScanRefer) annotations.
 
 ```
 Reason3D
@@ -127,23 +127,22 @@ Reason3D
 │   │   │   ├── XXXXX_regionX.pth
 │   │   │   ├── ...
 ```
-You can directly download our preprocessed data ([mp3d_data](https://drive.google.com/file/d/1OXT_hmv-9eHgqpcl3A0V28y-DfC5v0-y/view)), please agree the official license before download it.
+You can directly download our preprocessed data ([mp3d_data.zip](https://drive.google.com/file/d/1OXT_hmv-9eHgqpcl3A0V28y-DfC5v0-y/view)), please agree the official license before download it.
 
 ### Reason3D dataset
 
-Download Reason3D annotations [here](https://drive.google.com/file/d/1jb-WIaB5Ad4VweBpr1V7GUWKueL_w6l3/view).
+Download our Reason3D annotations [here](https://drive.google.com/file/d/1Z4kzr_4oJxTJgzILaycDuHlRYeZCXOu6/view).
 
 ```
 Reason3D
 ├── data
 │   ├── reason3d
 │   │   ├── reason3d_train.json
-│   │   ├── reason3d_val_mp3d.json
-│   │   ├── reason3d_val_scannet.json
+│   │   ├── reason3d_val.json
 ```
 
 ## Pretrained Backbone
-Download [SPFormer](https://github.com/sunjiahao1999/SPFormer) pretrained backbone (or provided by [3D-STMN](https://github.com/sosppxo/3D-STMN)) and move it to checkpoints.
+Download the [SPFormer](https://github.com/sunjiahao1999/SPFormer) pretrained backbone (or provided by [3D-STMN](https://github.com/sosppxo/3D-STMN)) and move it to checkpoints.
 ```
 mkdir checkpoints
 mv ${Download_PATH}/sp_unet_backbone.pth checkpoints/
@@ -151,16 +150,34 @@ mv ${Download_PATH}/sp_unet_backbone.pth checkpoints/
 You can also pretrain the backbone by yourself and modify the path [here](lavis/projects/reason3d/train/reason3d_scanrefer_scratch.yaml#L15).
 
 ## Training
-Train on ScanRefer dataset for 3D referring segmentation task from scratch:
+- **3D referring segmentation:** Train on ScanRefer dataset from scratch:
 ```
 python -m torch.distributed.run --nproc_per_node=4 --master_port=29501 train.py --cfg-path lavis/projects/reason3d/train/reason3d_scanrefer_scratch.yaml
 ```
-
-## Inference
+- **3D reasoning segmentation:** Train on Reason3D dataset using the pretrained checkpoint from the 3D referring segmentation model:
 ```
-python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_scanrefer_scratch.yaml --options model.pretrained=${CHECKPOINT_PATH}
+python -m torch.distributed.run --nproc_per_node=2 --master_port=29501 train.py --cfg-path lavis/projects/reason3d/train/reason3d_reason.yaml --options model.pretrained=<path_to_pretrained_checkpoint>
+```
+Replace `<path_to_pretrained_checkpoint>` with the path to your pretrained 3D referring segmentation model. For example: `./lavis/output/reason3d/xxxx/checkpoint_xx.pth`
+
+
+## Evaluation
+- **3D referring segmentation:** Evaluate on ScanRefer dataset: 
+```
+python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_scanrefer_scratch.yaml --options model.pretrained=<path_to_pretrained_checkpoint>
 ```
 Note: this repo currently only supports batch size = 1 for inference. 
+
+- **3D reasoning segmentation:** Evaluate on our Reason3D dataset: 
+```
+python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_reason.yaml --options model.pretrained=<path_to_pretrained_checkpoint>
+```
+We provide a pre-trained [checkpoint](https://drive.google.com/file/d/1FEKy5uu70Z3S5GCDjnt8VX8cXB1m9eVx/view?usp=sharing) for 3D Reasoning segmentation task. See the below table to check the performance.
+
+|                   |      Sample Number | mIoU      | Acc50     | Acc25     |
+| ----------------- |  ----------------- | --------- | --------- | --------- |
+| ScanNet           |          308       |   0.32    |    0.32   |   0.44     |
+| Matterport3D      |          837       |   0.22    |    0.21   |   0.33     | 
 
 ## Visualization
 
@@ -170,9 +187,9 @@ Note: this repo currently only supports batch size = 1 for inference.
 ## TODO List
 
 - [x] Release the initial code for 3D referring segmentation task.
-- [ ] Release final version paper.
-- [ ] Release hierarchical mask decoder code.
-- [ ] Release the dataset and code for 3D reasoning segmentation task. 
+- [X] Release final version paper.
+- [X] Release the dataset and code for 3D reasoning segmentation task.
+- [ ] Release hierarchical mask decoder code. 
 - [ ] Release demo and visualization code.
 - [ ] ...
 
@@ -190,7 +207,7 @@ If you find our work useful for your project, please consider citing our paper:
 @article{reason3d,
   title={Reason3D: Searching and Reasoning 3D Segmentation via Large Language Model},
   author={Kuan-Chih Huang and Xiangtai Li and Lu Qi and Shuicheng Yan and Ming-Hsuan Yang},
-  journal={arXiv},
-  year={2024}
+  journal={3DV},
+  year={2025}
 }
 ```
