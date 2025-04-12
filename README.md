@@ -165,14 +165,16 @@ Replace `<path_to_pretrained_checkpoint>` with the path to your pretrained 3D re
 ## Evaluation
 - **3D referring segmentation:** Evaluate on ScanRefer dataset: 
 ```
-python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_scanrefer_scratch.yaml --options model.pretrained=<path_to_pretrained_checkpoint>
+python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_scanrefer_scratch.yaml --options model.pretrained=<path_to_pretrained_checkpoint> run.save_results=True
 ```
 Note: this repo currently only supports batch size = 1 for inference. 
 
 - **3D reasoning segmentation:** Evaluate on our Reason3D dataset: 
 ```
-python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_reason.yaml --options model.pretrained=<path_to_pretrained_checkpoint>
+python evaluate.py --cfg-path lavis/projects/reason3d/val/reason3d_reason.yaml --options model.pretrained=<path_to_pretrained_checkpoint> run.save_results=True
 ```
+Add `run.save_results=True` option if you want to save prediction results.
+
 We provide a pre-trained [checkpoint](https://drive.google.com/file/d/1FEKy5uu70Z3S5GCDjnt8VX8cXB1m9eVx/view?usp=sharing) for 3D Reasoning segmentation task. See the below table to check the performance.
 
 |                   |      Sample Number | mIoU      | Acc50     | Acc25     |
@@ -181,6 +183,14 @@ We provide a pre-trained [checkpoint](https://drive.google.com/file/d/1FEKy5uu70
 | Matterport3D      |          837       |   0.22    |    0.21   |   0.33     | 
 
 ## Visualization
+
+You can visualize prediction results using:
+```
+python visualize.py --idx <sample_index> --result_dir <results_directory>
+```
+`<sample_index>`: Index of the sample you wish to display. `<results_directory>`: Path to either the `reason_preds` or `refer_preds` directory containing the results.
+
+## Results
 
 <img src="figs/visualization.jpg" alt="vis" style="zoom:50%;" />
 

@@ -225,18 +225,17 @@ class ThreeDReferDataset(BaseDataset):
             'lang_tokens': None,
             'answers': answers,
             "text_input": question,
+            "sp_filename": sp_filename,
         }
 
-        return ann_id, scan_id, coord, coord_float, feat, superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens
-    
     def collater(self, batch):
-        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, sp_filename_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         batch_offsets = [0]
         n_answers = []
         superpoint_bias = 0
 
         for i, data in enumerate(batch):
-            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions = list(data.values())
+            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, sp_filename = list(data.values())
             
             superpoint = src_superpoint + superpoint_bias
             superpoint_bias = superpoint.max().item() + 1
@@ -256,6 +255,7 @@ class ThreeDReferDataset(BaseDataset):
             sp_ref_masks.append(sp_ref_mask)
             answerss.extend(answers)
             text_input_list.append(captions)
+            sp_filename_list.append(sp_filename)
 
             n_answers.append(len(answers))
 
@@ -289,6 +289,7 @@ class ThreeDReferDataset(BaseDataset):
             'lang_tokenss': None,
             'lang_masks': None,
             'n_answers': torch.LongTensor(n_answers),
+            'sp_filenames': sp_filename_list,
         }
 
     def __len__(self):

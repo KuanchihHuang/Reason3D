@@ -259,16 +259,17 @@ class ThreeDReasonDataset(BaseDataset):
             'answers': answers,
             "text_input": question,
             "data_type": data_type,
+            "sp_filename": sp_filename,
         }
 
     def collater(self, batch):
-        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, data_type_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, data_type_list, sp_filename_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         batch_offsets = [0]
         n_answers = []
         superpoint_bias = 0
 
         for i, data in enumerate(batch):
-            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, data_type = list(data.values())
+            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, data_type, sp_filename = list(data.values())
             
             superpoint = src_superpoint + superpoint_bias
             superpoint_bias = superpoint.max().item() + 1
@@ -289,6 +290,7 @@ class ThreeDReasonDataset(BaseDataset):
             answerss.extend(answers)
             text_input_list.append(captions)
             data_type_list.append(data_type)
+            sp_filename_list.append(sp_filename)
 
             n_answers.append(len(answers))
 
@@ -323,6 +325,7 @@ class ThreeDReasonDataset(BaseDataset):
             'lang_masks': None,
             'n_answers': torch.LongTensor(n_answers),
             'data_types': data_type_list,
+            'sp_filenames': sp_filename_list,
         }
 
     def __len__(self):

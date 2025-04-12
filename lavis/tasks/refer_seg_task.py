@@ -25,6 +25,7 @@ class ThreeDReferSegTask(BaseTask):
         num_ans_candidates,
         inference_method="rank",
         prompt="",
+        save_results=False
     ):
         super().__init__()
 
@@ -36,6 +37,9 @@ class ThreeDReferSegTask(BaseTask):
         self.inference_method = inference_method
         self.num_ans_candidates = num_ans_candidates
         self.prompt = prompt
+        self.save_results = save_results
+        self.save_dir = "refer_preds"
+        self.count = 0
 
         self.answer_list = None
 
@@ -55,6 +59,7 @@ class ThreeDReferSegTask(BaseTask):
         inference_method = run_cfg.get("inference_method", "rank")
         num_ans_candidates = run_cfg.get("num_ans_candidates", 128)
         prompt = run_cfg.get("prompt", "")
+        save_results = run_cfg.get("save_results", False)
 
         return cls(
             num_beams=num_beams,
@@ -64,6 +69,7 @@ class ThreeDReferSegTask(BaseTask):
             num_ans_candidates=num_ans_candidates,
             inference_method=inference_method,
             prompt=prompt,
+            save_results=save_results
         )
 
     def valid_step(self, model, samples):
@@ -88,6 +94,20 @@ class ThreeDReferSegTask(BaseTask):
         piou = get_iou(pred_pmask, gt_pmask, pred_confidence = model.pred_confidence)
 
         result = dict(scan_id=samples["scan_ids"][0], object_id=samples["object_ids"][0], ann_id=samples["ann_ids"][0], piou=piou, spiou=spiou, gt_pmask=gt_pmask, pred_pmask=pred_pmask)
+
+        if self.save_results:
+            import pickle
+            os.makedirs(self.save_dir, exist_ok=True)
+            ann_id = result["ann_id"]
+            scan_id = result["scan_id"]
+            gt_pmask = result["gt_pmask"].cpu().numpy()
+            pred_pmask = result["pred_pmask"].sigmoid().cpu().numpy()
+            text_input = samples['text_input'][0]
+            sp_filename = samples["sp_filenames"][0]
+
+            with open(os.path.join(self.save_dir, f"{self.count}.pkl"), 'wb') as f:
+                pickle.dump({"scan_id":scan_id, "gt_pmask": gt_pmask, "pred_pmask": pred_pmask, "text_input": text_input, "sp_filename": sp_filename}, f)
+            self.count += 1
 
         return [{"result": result}]
 
