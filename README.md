@@ -28,10 +28,12 @@ We introduce Reason3D, a novel LLM for comprehensive 3D understanding that proce
 
 ## Installation
 
-1. Create conda environment
+1. Create conda environment. We use `python=3.8` `pytorch=1.11.0` and `cuda=11.3`.
 ```bash
 conda create -n reason3d python=3.8
 conda activate reason3d
+conda install pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 cudatoolkit=11.3 -c pytorch
+pip install -r requirements.txt
 ```
 
 2. Install [LAVIS](https://github.com/salesforce/LAVIS)
