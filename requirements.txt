@@ -1,0 +1,6 @@
+gorilla-core
+open3d
+opencv-python
+plyfile
+tqdm
+transformers==4.33.2
