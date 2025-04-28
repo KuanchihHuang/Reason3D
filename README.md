@@ -49,6 +49,7 @@ pip install -e .
 4. Install pointgroup_ops
 ```bash
 cd lavis/models/reason3d_models/lib
+sudo apt-get install libsparsehash-dev
 python setup.py develop
 ```
 
