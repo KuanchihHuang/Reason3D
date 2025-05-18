@@ -106,11 +106,11 @@ Extract the room type information:
 cd data/matterport
 python3 parse_mp3d_house_type.py
 ```
-After that, we will get `mp3d_room_type.json` under `data/matterport`. You can directly download our file [here]() to skip this step.
+After that, we will get `mp3d_room_type.json` under `data/matterport`. You can directly download our file [here](https://drive.google.com/file/d/1ZSFgZbpGLn79Ih_XJhNhWQJ9rTRtLn_e/view?usp=sharing) to skip this step.
 
 ### Reason3D dataset (Searching)
 
-Download sample searching annotations to quickly set up and test our pipeline from this [link]().
+Download sample searching annotations to quickly set up and test our pipeline from this [link](https://drive.google.com/file/d/1Fjv0G6zCLLt0QvbASkP5eTiwWR9gwwv0/view?usp=sharing).
 
 After downloading, place the files in the following directory structure:
 
@@ -174,4 +174,3 @@ If you find our work useful for your project, please consider citing our paper:
   year={2025}
 }
 ```
-
