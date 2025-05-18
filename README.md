@@ -1,4 +1,4 @@
-lign="center">
+<p align="center">
   <h1 align="center">Reason3D: Searching and Reasoning 3D Segmentation via Large Language Model [3DV 2025]
   </h1>
   <p align="center">
