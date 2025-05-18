@@ -19,6 +19,8 @@
 ## 🔥 Update
 - 2025/01/19:  Initial code for 3D referring segmentation has been released.
 - 2025/04/05:  Code and dataset for 3D reasoning segmentation has been released.
+- 2025/05/18:  We release the hierarchical searching code in the [search branch](https://github.com/KuanchihHuang/Reason3D/tree/search).
+
 
 ## Overview
 
@@ -203,8 +205,8 @@ python visualize.py --idx <sample_index> --result_dir <results_directory>
 - [x] Release the initial code for 3D referring segmentation task.
 - [X] Release final version paper.
 - [X] Release the dataset and code for 3D reasoning segmentation task.
-- [ ] Release hierarchical mask decoder code. 
-- [ ] Release demo and visualization code.
+- [X] Release hierarchical mask decoder code. 
+- [X] Release demo and visualization code.
 - [ ] ...
 
 ## Acknowlegment
