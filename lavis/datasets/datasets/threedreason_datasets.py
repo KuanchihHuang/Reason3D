@@ -16,12 +16,26 @@ from PIL import Image
 from PIL import ImageFile
 import torch_scatter
 from typing import Dict, Sequence, Tuple, Union
-import pandas as pd
-
 from lavis.datasets.datasets.base_dataset import BaseDataset
+import re
+import pandas as pd
 import glob
 import random
-from .scannet200_constants import CLASS_LABELS_200
+from pathlib import Path
+import re
+from collections import defaultdict
+
+
+room_type_list = ["bathroom", "bedroom", "closet", "dining room", "entryway", "familyroom", "garage", "hallway", "library", "laundryroom", "kitchen", "living room", "conference room", "lounge", "office", "porch", "game", "stairs", "toilet", "utility room", "tv", "workout", "outdoor areas", "balcony", "other room", "bar", "classroom", "dining booth", "spa", "junk"]
+
+def get_neighbors(idx, idx_range):
+    start, end = idx_range
+    if idx == start:
+        return [start, start + 1, start + 2]
+    elif idx == end:
+        return [end - 2, end - 1, end]
+    else:
+        return [idx - 1, idx, idx + 1]
 
 def process_txt(filename):
     with open(filename) as file:
@@ -31,16 +45,11 @@ def process_txt(filename):
 
 class ThreeDReasonDataset(BaseDataset):
     def __init__(self, text_processor, pts_root, ann_paths):
-        """
-        vis_root (string): Root directory of images (e.g. coco/images/)
-        ann_root (string): directory to store the annotation file
-        """
         super().__init__(text_processor, pts_root, ann_paths)
         self.scene_ids = {}
-
         self.use_xyz = True
         self.mode = 4
- 
+    
         if 'train' in ann_paths[0]:
             self.prefix = 'train'
             self.training = True
@@ -48,47 +57,31 @@ class ThreeDReasonDataset(BaseDataset):
             self.prefix = 'val'
             self.training = False
         self.with_label = True
-        self.scannet200_sp_filenames = self.get_scannet200_sp_filenames()
-        self.mp3d_sp_filenames = self.get_mp3d_sp_filenames()
 
-        new_data = []
-            
-        for data in self.annotation:
-    
-            assert data['type'] in ['scannet', 'mp3d']
-            sp_filename = None
-            filenames = self.scannet200_sp_filenames if data['type'] == 'scannet' else self.mp3d_sp_filenames
-    
-            if data['type'] == 'scannet':
-                # For scannet, check if scene_id is in filename
-                for fn in filenames:
-                    if data['scene_id'] in fn:
-                        sp_filename = fn
-                        break
-            else:  # mp3d
-                # For mp3d, extract basename and compare with scene_id
-                for fn in filenames:
-                    fn_base = os.path.splitext(os.path.basename(fn))[0]
-                    if data['scene_id'] == fn_base:
-                        sp_filename = fn
-                        break
-             
-            assert sp_filename is not None
-            data['sp_filename'] = sp_filename
-            new_data.append(data)
+        self.sp_filenames = self.get_mp3d_sp_filenames()        
 
-        self.annotation = new_data
         self.short_question_list = QUESTION_LIST
         self.answer_list = ANSWER_LIST
         self.with_elastic = False
-        self.aug = True      
+        self.aug = False        
 
-    def get_scannet200_sp_filenames(self):
-        filenames = glob.glob(osp.join(self.pts_root, 'scannetv2', self.prefix, '*' + '_reason.pth'))
-        assert len(filenames) > 0, 'Empty dataset.'
-        filenames = sorted(filenames)
-        return filenames
+        with open("data/matterport/mp3d_room_type.json",'r') as f:
+            self.room_type = json.load(f)
 
+        room_ids = self.room_type.keys()
+
+        ranges = defaultdict(list)
+
+        # Extract IDs and region numbers
+        for item in room_ids:
+            match = re.match(r'(.+)_region(\d+)', item)
+            if match:
+                id_, region_num = match.groups()
+                ranges[id_].append(int(region_num))
+
+        # Determine the range for each ID
+        self.room_id_ranges = {id_: (min(nums), max(nums)) for id_, nums in ranges.items()}
+        
     def get_mp3d_sp_filenames(self):
         mp3d_root = os.path.join(self.pts_root, 'matterport')
         scene_list = process_txt(os.path.join(mp3d_root,'scenes_'+self.prefix+'.txt'))
@@ -96,7 +89,7 @@ class ThreeDReasonDataset(BaseDataset):
         scene_files = []
         for scene in scene_list:
             scene_files = scene_files + glob.glob(os.path.join(mp3d_pointcept, scene+"*"))
-        return scene_files            
+        return scene_files
         
     def load(self, filename):
         if self.with_label:
@@ -108,9 +101,6 @@ class ThreeDReasonDataset(BaseDataset):
             return xyz, rgb, superpoint, dummy_sem_label, dummy_inst_label
         
     def transform_train(self, xyz, rgb, superpoint, semantic_label, instance_label=None):
-        #TODO: normalize
-        xyz_max = np.max(xyz,axis=0)[np.newaxis, ...]
-        xyz = xyz - xyz_max
         if self.aug:
             xyz_middle = self.data_aug(xyz, True, True, True)
         else:
@@ -121,27 +111,29 @@ class ThreeDReasonDataset(BaseDataset):
             xyz = self.elastic(xyz, 6, 40.)
             xyz = self.elastic(xyz, 20, 160.)
         xyz = xyz - xyz.min(0)
-        valid_idxs = xyz.min(1) >= 0
+        xyz, valid_idxs = self.crop(xyz)
         xyz_middle = xyz_middle[valid_idxs]
         xyz = xyz[valid_idxs]
         rgb = rgb[valid_idxs]
         semantic_label = semantic_label[valid_idxs]
         superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
-        #instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
-        return xyz, xyz_middle, rgb, superpoint, semantic_label
+        if instance_label != None:
+            instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
+            return xyz, xyz_middle, rgb, superpoint, semantic_label, instance_label
+        else:
+            return xyz, xyz_middle, rgb, superpoint, semantic_label
 
     def transform_test(self, xyz, rgb, superpoint, semantic_label, instance_label=None):
-        #TODO: normalize
-        xyz_max = np.max(xyz,axis=0)[np.newaxis, ...]
-        xyz = xyz - xyz_max
         xyz_middle = xyz
         xyz = xyz_middle * 50
         xyz -= xyz.min(0)
         valid_idxs = np.ones(xyz.shape[0], dtype=bool)
         superpoint = np.unique(superpoint[valid_idxs], return_inverse=True)[1]
-        return xyz, xyz_middle, rgb, superpoint, semantic_label
-        instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
-        return xyz, xyz_middle, rgb, superpoint, semantic_label, instance_label
+        if instance_label != None:
+            instance_label = self.get_cropped_inst_label(instance_label, valid_idxs)
+            return xyz, xyz_middle, rgb, superpoint, semantic_label, instance_label
+        else:
+            return xyz, xyz_middle, rgb, superpoint, semantic_label
 
     def data_aug(self, xyz, jitter=False, flip=False, rot=False):
         m = np.eye(3)
@@ -155,6 +147,30 @@ class ThreeDReasonDataset(BaseDataset):
                 m,
                 [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])  # rotation
         return np.matmul(xyz, m)
+
+    def crop(self, xyz: np.ndarray) -> Union[np.ndarray, np.ndarray]:
+        r"""
+        crop the point cloud to reduce training complexity
+
+        Args:
+            xyz (np.ndarray, [N, 3]): input point cloud to be cropped
+
+        Returns:
+            Union[np.ndarray, np.ndarray]: processed point cloud and boolean valid indices
+        """
+        xyz_offset = xyz.copy()
+        valid_idxs = xyz_offset.min(1) >= 0
+        assert valid_idxs.sum() == xyz.shape[0]
+
+        full_scale = np.array([512] * 3)
+        room_range = xyz.max(0) - xyz.min(0)
+        while valid_idxs.sum() > 250000:
+            offset = np.clip(full_scale - room_range + 0.001, None, 0) * np.random.rand(3)
+            xyz_offset = xyz + offset
+            valid_idxs = (xyz_offset.min(1) >= 0) * ((xyz_offset < full_scale).sum(1) == 3)
+            full_scale[:2] -= 32
+
+        return xyz_offset, valid_idxs
 
     def elastic(self, xyz, gran, mag):
         """Elastic distortion (from point group)
@@ -213,36 +229,106 @@ class ThreeDReasonDataset(BaseDataset):
         gt_pmask = ref_lbl.float()
         return gt_pmask, gt_spmask
     
-    def __len__(self):
-        return len(self.scanrefer)
-    
     def __getitem__(self, index: int) -> Tuple:
         data = self.annotation[index]
-        scan_id = data["scene_id"]
-        object_id = int(data["object_id"])
-        object_name = data["object_name"]
-        question = data['question']
-        data_type = data['type']
-        ann_id = index 
+        scan_id = data['scene_name']
+        ann_id = index
+        
+        scene = scan_id.split("_")[0]
+        all_sp_filename = [f for f in self.sp_filenames if scene in f]
+
+        sp_filename = None
+        for fn in self.sp_filenames:
+            fn_short = fn.split("/")[-1].split('.')[0]
+            if scan_id == fn_short:
+                sp_filename = fn
+                break
+        assert sp_filename != None
+
+        xyz_list = []
+        xyz_middle_list = []
+        rgb_list = []
+        superpoint_list = []
+        semantic_label_list = []
+        room_mask_list = []
+        room_sp_mask_list = []
+        
+        # load all files
+        start_num = 0
+        room_idx = -1
+        for i, sp in enumerate(all_sp_filename):
+            if sp == sp_filename:
+                room_idx = i
+                break
+        assert room_idx != -1
+
+        #TODO: we simply get neighbor rooms to mimic three-room house case
+        idx_range = self.room_id_ranges[scene]
+        room_list = get_neighbors(room_idx, idx_range)
+        # room_list = [room_idx-1, room_idx, room_idx+1]
+
+        superpoint_bias = 0
+
+        for i,sp in enumerate(all_sp_filename):
+            
+            if i not in room_list:
+                continue
+
+            region = Path(sp).stem
+            room = self.room_type[region]
+
+            data = self.load(sp)
+            data = self.transform_train(*data) if self.training else self.transform_test(*data)
+            xyz, xyz_middle, rgb, superpoint, semantic_label = data
+            
+            superpoint = superpoint + start_num
+            start_num = superpoint.max().item() + 1
+
+            xyz_list.append(torch.from_numpy(xyz).long())
+            xyz_middle_list.append(torch.from_numpy(xyz_middle).float())
+            rgb_list.append(torch.from_numpy(rgb).float())
+
+            superpoint_list.append(torch.from_numpy(superpoint))
+            semantic_label_list.append(torch.from_numpy(semantic_label).long())
+            
+            if sp_filename == sp:
+                room_mask_list.append(torch.zeros(xyz.shape[0]).bool())        
+                room_sp_mask_list.append(torch.zeros(np.unique(superpoint).shape[0]).bool())        
+            else:
+                room_mask_list.append(torch.ones(xyz.shape[0]).bool())        
+                room_sp_mask_list.append(torch.ones(np.unique(superpoint).shape[0]).bool())        
+
+        coord = torch.cat(xyz_list)
+        coord_float = torch.cat(xyz_middle_list)
+        feat = torch.cat(rgb_list)
+        superpoint = torch.cat(superpoint_list)
+
+        assert len(torch.unique(superpoint)) == start_num
+
+        semantic_label = torch.cat(semantic_label_list)
+        room_mask = torch.cat(room_mask_list)
+        room_sp_mask = torch.cat(room_sp_mask_list)
+        
+        room_target = None
+
+        for room_type in room_type_list:
+            if room_type in self.annotation[index]['question']:
+                room_target = room_type
+                break
+        assert room_target != None            
+
         question_template = random.choice(self.short_question_list)
+        caption_ori = question_template.format(description=self.annotation[index]['question'])
 
-        sp_filename = data["sp_filename"]
-        data = self.load(sp_filename)
-        data = self.transform_train(*data) if self.training else self.transform_test(*data)
-        xyz, xyz_middle, rgb, superpoint, semantic_label = data
-
-        unique_class = np.unique(semantic_label)
-        coord = torch.from_numpy(xyz).long()
-        coord_float = torch.from_numpy(xyz_middle).float()
-        feat = torch.from_numpy(rgb).float()
-        superpoint = torch.from_numpy(superpoint)
-        semantic_label = torch.from_numpy(semantic_label).long()
-        question_template = random.choice(self.short_question_list)
-        question = question_template.format(description=question)
-
+        object_id = self.annotation[index]['object_id']
         gt_pmask, gt_spmask = self.get_ref_mask(semantic_label, superpoint, object_id)
+            
+        gt_pmask[room_mask.bool()] = False
+        gt_spmask[room_sp_mask.bool()] = False
+
         assert gt_pmask.max().item() == True
-        answers = [random.choice(self.answer_list)]
+        
+        answers = [random.choice(self.answer_list).format(location=room_target)]
 
         return {
             'ann_ids': ann_id,
@@ -257,19 +343,23 @@ class ThreeDReasonDataset(BaseDataset):
             'sp_ref_mask': None,
             'lang_tokens': None,
             'answers': answers,
-            "text_input": question,
-            "data_type": data_type,
-            "sp_filename": sp_filename,
+            "text_input": caption_ori,
+            'room_mask': ~room_mask,
+            'room_sp_mask': ~room_sp_mask,
         }
 
     def collater(self, batch):
-        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, data_type_list, sp_filename_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, room_mask_list, room_sp_mask_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         batch_offsets = [0]
         n_answers = []
         superpoint_bias = 0
 
+        j = 0
+        
+        num_room_batch = []
+
         for i, data in enumerate(batch):
-            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, data_type, sp_filename = list(data.values())
+            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, room_mask, room_sp_mask = list(data.values())
             
             superpoint = src_superpoint + superpoint_bias
             superpoint_bias = superpoint.max().item() + 1
@@ -278,6 +368,9 @@ class ThreeDReasonDataset(BaseDataset):
             ann_ids.append(ann_id)
             scan_ids.append(scan_id)
             coords.append(torch.cat([torch.LongTensor(coord.shape[0], 1).fill_(i), coord], 1))
+
+            num_room_batch.append(len(coord))
+
             coords_float.append(coord_float)
             feats.append(feat)
             superpoints.append(superpoint)
@@ -289,12 +382,14 @@ class ThreeDReasonDataset(BaseDataset):
             sp_ref_masks.append(sp_ref_mask)
             answerss.extend(answers)
             text_input_list.append(captions)
-            data_type_list.append(data_type)
-            sp_filename_list.append(sp_filename)
-
+            
             n_answers.append(len(answers))
+            
+            room_mask_list.append(room_mask)
+            room_sp_mask_list.append(room_sp_mask)
 
         batch_offsets = torch.tensor(batch_offsets, dtype=torch.int)  # int [B+1]
+
         coords = torch.cat(coords, 0)  # long [B*N, 1 + 3], the batch item idx is put in b_xyz[:, 0]
         coords_float = torch.cat(coords_float, 0)  # float [B*N, 3]
         feats = torch.cat(feats, 0)  # float [B*N, 3]
@@ -302,7 +397,7 @@ class ThreeDReasonDataset(BaseDataset):
         if self.use_xyz:
             feats = torch.cat((feats, coords_float), dim=1)
         # voxelize
-        spatial_shape = np.clip((coords.max(0)[0][1:] + 1).numpy(), 128, None)  # long [3]
+        spatial_shape = np.clip((coords.max(0)[0][1:] + 1).numpy(), 128, None)
         voxel_coords, p2v_map, v2p_map = pointgroup_ops.voxelization_idx(coords, len(batch), self.mode)
 
         return {
@@ -317,30 +412,27 @@ class ThreeDReasonDataset(BaseDataset):
             'batch_offsets': batch_offsets,
             'object_ids': object_ids,
             'gt_pmasks': gt_pmasks,
+            'gt_pmasks_region': room_mask_list,
+            'gt_spmasks_region': room_sp_mask_list,
             'gt_spmasks': gt_spmasks,
             'sp_ref_masks': sp_ref_masks,
             "answer": answerss,
             "text_input": text_input_list,
-            'lang_tokenss': None,
-            'lang_masks': None,
             'n_answers': torch.LongTensor(n_answers),
-            'data_types': data_type_list,
-            'sp_filenames': sp_filename_list,
         }
 
     def __len__(self):
         return len(self.annotation)
 
 QUESTION_LIST = [
-    "Please segment the object according to the given 3D scene and the description: {description}.",
-    "Given the 3D scene, segment this object according to the description: {description}.",
-    "Respond the segmentation mask of the object: {description}.",
+    "Please identify the room first then segment the object according to the given 3D scene and the description: {description}.",
+    "Given the 3D scene, provide the room first then segment the object according to the description: {description}.",
+    "Respond the room mask first then the segmentation mask of the object: {description}.",
 ]
 
 ANSWER_LIST = [
-    "It is [SEG].",
-    "Sure, [SEG].",
-    "Sure, it is [SEG].",
-    "Sure, the segmentation result is [SEG].",
-    "[SEG].",
+    "The location of {location} is [LOC]. The mask is [SEG].",
+    "Sure, the location of {location} is [LOC] and the mask is [SEG].",
+    "Sure, the location of {location} is [LOC]. The segmentation result is [SEG].",
+    "The location of {location} is [LOC]. The mask is [SEG].",
 ]

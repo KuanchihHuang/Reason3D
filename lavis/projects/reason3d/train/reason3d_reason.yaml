@@ -39,11 +39,11 @@ datasets:
     build_info:
         annotations:
           train:
-            storage: reason3d/reason3d_train.json
+            storage: ScanRefer/ScanRefer_filtered_train.json
           test:
-            storage: reason3d/reason3d_val.json
+            storage: ScanRefer/ScanRefer_filtered_val.json
           val:
-            storage: reason3d/reason3d_val.json
+            storage: ScanRefer/ScanRefer_filtered_val.json
 
 run:
   task: 3d_reason_seg
@@ -54,20 +54,20 @@ run:
   warmup_lr: 1e-8
   warmup_steps: 1000
   weight_decay: 0.05
-  max_epoch: 100
+  max_epoch: 50
   batch_size_train: 16
   batch_size_eval: 1
   num_workers: 4
   accum_grad_iters: 1
 
-  max_len: 60
+  max_len: 40
   min_len: 1
   num_beams: 5
  
   inference_method: "generate"
 
   seed: 42
-  output_dir: "output/reason3d_reason"
+  output_dir: "output/reason3d_search"
 
   amp: True
   #resume_ckpt_path:

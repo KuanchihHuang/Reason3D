@@ -39,11 +39,11 @@ datasets:
     build_info:
         annotations:
           train:
-            storage: reason3d/reason3d_train.json
+            storage: reason3d_search/mp3d_room_train.json
           test:
-            storage: reason3d/reason3d_val.json
+            storage: reason3d_search/mp3d_room_val.json
           val:
-            storage: reason3d/reason3d_val.json
+            storage: reason3d_search/mp3d_room_val.json
 
 run:
   task: 3d_reason_seg
@@ -60,14 +60,14 @@ run:
   num_workers: 4
   accum_grad_iters: 1
 
-  max_len: 60
+  max_len: 40
   min_len: 1
   num_beams: 5
  
   inference_method: "generate"
 
   seed: 42
-  output_dir: "output/reason3d_reason"
+  output_dir: "output/reason3d_search"
 
   amp: True
   #resume_ckpt_path:

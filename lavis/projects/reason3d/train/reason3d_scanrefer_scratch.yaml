@@ -11,8 +11,8 @@ model:
     normalize_before: True
     return_blocks: True
     fix_module: ['input_conv', 'unet', 'output_layer']
-    #pretrained: "checkpoints/sp_unet_backbone.pth"  #change it   
-    pretrained: "checkpoints/spf_scannet_512.pth"  #change it   
+    pretrained: "checkpoints/sp_unet_backbone.pth"  #change it   
+    #pretrained: "checkpoints/spf_scannet_512.pth"  #change it   
   mask_decoder_cfg:
     media: 32
     num_layer: 6

@@ -43,6 +43,7 @@ class Reason3DT5(BaseModel):
 
         self.encoder = PointExtractor(**point_encoder_cfg)
         self.mask_decoder = MaskDecoder(**mask_decoder_cfg)
+        self.region_decoder = MaskDecoder(**mask_decoder_cfg)
         gorilla.load_checkpoint(self.encoder, point_encoder_cfg["pretrained"], strict=False, map_location='cpu')
         
         self.pc_adapter = nn.Linear(point_encoder_cfg["media"], 1408)
@@ -57,7 +58,9 @@ class Reason3DT5(BaseModel):
         self.t5_tokenizer = T5TokenizerFast.from_pretrained(t5_model)
 
         num_added_tokens = self.t5_tokenizer.add_tokens("[SEG]")
+        self.t5_tokenizer.add_tokens("[LOC]")
         self.seg_token_idx = self.t5_tokenizer("[SEG]", add_special_tokens=False).input_ids[0]
+        self.loc_token_idx = self.t5_tokenizer("[LOC]", add_special_tokens=False).input_ids[0]
 
         t5_config = T5Config.from_pretrained(t5_model)
         t5_config.dense_act_fn = "gelu"
@@ -85,9 +88,20 @@ class Reason3DT5(BaseModel):
             nn.Linear(in_dim, out_dim),
             nn.Dropout(0.0),
         ]
+        loc_text_fc = [
+            nn.Linear(in_dim, in_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_dim, out_dim),
+            nn.Dropout(0.0),
+        ]
+
         self.text_hidden_fcs = nn.ModuleList([nn.Sequential(*text_fc)])
+        self.loc_text_hidden_fcs = nn.ModuleList([nn.Sequential(*loc_text_fc)])
         self.text_hidden_fcs.train()
+        self.loc_text_hidden_fcs.train()
         for param in self.text_hidden_fcs.parameters():
+            param.requires_grad = True
+        for param in self.loc_text_hidden_fcs.parameters():
             param.requires_grad = True
         self.criterion = Criterion(**seg_criterion_cfg)
         self.pred_confidence = pred_confidence
@@ -170,16 +184,26 @@ class Reason3DT5(BaseModel):
             )
             seq_out = outputs["decoder_hidden_states"][-1]
             seg_token_index = targets == self.seg_token_idx
+            loc_token_index = targets == self.loc_token_idx
         
-            seq_out = seq_out[seg_token_index]
+            seg_out = seq_out[seg_token_index]
+            loc_out = seq_out[loc_token_index]
 
-            text_features = self.text_hidden_fcs[0](seq_out).unsqueeze(1)
-            samples["text_features"] = text_features
-            out = self.mask_decoder(**samples)
+            seg_features = self.text_hidden_fcs[0](seg_out).unsqueeze(1)
+            loc_features = self.loc_text_hidden_fcs[0](loc_out).unsqueeze(1)
+            samples["text_features"] = seg_features
+            samples["loc_text_features"] = loc_features
+
+            out_region = self.region_decoder(samples['sp_feats'], samples['batch_offsets'], samples['loc_text_features'], None)
+            pred_region_mask = out_region['masks'].squeeze()[~out_region['batch_mask']].sigmoid().unsqueeze(1)
+        
+            out = self.mask_decoder(samples['sp_feats'], samples['batch_offsets'], samples['text_features'], pred_region_mask.detach())
+
+            seg_loss_region, log_vars = self.criterion(out_region, samples["gt_pmasks_region"], samples["gt_spmasks_region"], None)
             seg_loss, log_vars = self.criterion(out, samples["gt_pmasks"], samples["gt_spmasks"], None)
 
             loss = outputs.loss
-            loss = loss + seg_loss
+            loss = loss + seg_loss + seg_loss_region
             return {"loss": loss}
 
     def predict_seg(
@@ -250,17 +274,33 @@ class Reason3DT5(BaseModel):
             )
 
             seg_mask = outputs["sequences"][:,1:] == self.seg_token_idx
-            seg_out = outputs['decoder_hidden_states'][-1][-1]
-            seg_out = seg_out[seg_mask].mean(axis=0, keepdim=True)
+            loc_mask = outputs["sequences"][:,1:] == self.loc_token_idx
+            seq_out = outputs['decoder_hidden_states'][-1][-1]
+            seg_out = seq_out[seg_mask].mean(axis=0, keepdim=True)
+            loc_out = seq_out[loc_mask].mean(axis=0, keepdim=True)
 
             if seg_out.shape[0] == 0:
                 #only allow batch size = 1
-                seg_out = torch.zeros((1,self.t5_model.config.hidden_size)).cuda()
+                seg_out = torch.rand((1,self.t5_model.config.hidden_size)).cuda()
+            if loc_out.shape[0] == 0:
+                #only allow batch size = 1
+                loc_out = torch.rand((1,self.t5_model.config.hidden_size)).cuda()
 
             text_features = self.text_hidden_fcs[0](seg_out).unsqueeze(1)
-            samples["text_features"] = text_features
-            result = self.mask_decoder(**samples)
+            loc_text_features = self.loc_text_hidden_fcs[0](loc_out).unsqueeze(1)
 
+            samples["text_features"] = text_features
+            samples["loc_text_features"] = loc_text_features
+
+            out_region = self.region_decoder(samples['sp_feats'], samples['batch_offsets'], samples['loc_text_features'], None)
+
+
+            pred_region_mask = out_region['masks'].squeeze(0)[~out_region['batch_mask']].sigmoid().unsqueeze(1)
+        
+            result = self.mask_decoder(samples['sp_feats'], samples['batch_offsets'], samples['text_features'], pred_region_mask.detach())
+
+            #samples["text_features"] = text_features
+            #result = self.mask_decoder(**samples)
             return result
 
     def _lemmatize(self, answers):

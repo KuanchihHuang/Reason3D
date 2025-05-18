@@ -170,6 +170,12 @@ class ThreeDReferDataset(BaseDataset):
         gt_spmask = (gt_spmask > 0.5).float()
         gt_pmask = ref_lbl.float()
         return gt_pmask, gt_spmask
+
+    def get_ref_mask_region(self, ref_lbl, superpoint):
+        gt_spmask = torch_scatter.scatter_mean(ref_lbl.float(), superpoint, dim=-1)
+        gt_spmask = (gt_spmask > 0.5).float()
+        gt_pmask = ref_lbl.float()
+        return gt_pmask, gt_spmask
     
     def __len__(self):
         return len(self.scanrefer)
@@ -199,6 +205,22 @@ class ThreeDReferDataset(BaseDataset):
         semantic_label = torch.from_numpy(semantic_label).long()
         instance_label = torch.from_numpy(instance_label).long()
         gt_pmask, gt_spmask = self.get_ref_mask(instance_label, superpoint, object_id)
+
+
+        #Get coarse region
+        object_points = coord_float[gt_pmask.bool()]
+        min_corner = object_points.cpu().numpy().min(axis=0)
+        max_corner = object_points.cpu().numpy().max(axis=0)
+        center = (min_corner + max_corner) / 2
+        radius = (max_corner - min_corner) / 2
+        dist = np.linalg.norm(max_corner-min_corner) / 2
+
+        batch_dist = torch.sum((coord_float - torch.from_numpy(center).unsqueeze(0))**2, axis=1)
+        batch_dist = np.sqrt(batch_dist)
+
+        region_label =( batch_dist <= 2 * dist)
+        gt_pmask_region, gt_spmask_region = self.get_ref_mask_region(region_label, superpoint)
+
         answers = [random.choice(self.answer_list)]
         
         if gt_pmask.int().max() != 1:
@@ -226,16 +248,18 @@ class ThreeDReferDataset(BaseDataset):
             'answers': answers,
             "text_input": question,
             "sp_filename": sp_filename,
+            'gt_pmask_region': gt_pmask_region,
+            'gt_spmask_region': gt_spmask_region,
         }
 
     def collater(self, batch):
-        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, sp_filename_list = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+        ann_ids, scan_ids, coords, coords_float, feats, superpoints, object_ids, gt_pmasks, gt_spmasks, sp_ref_masks, lang_tokenss, lang_masks, lang_words, answerss, text_input_list, sp_filename_list, gt_pmasks_region, gt_spmasks_region = [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
         batch_offsets = [0]
         n_answers = []
         superpoint_bias = 0
 
         for i, data in enumerate(batch):
-            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, sp_filename = list(data.values())
+            ann_id, scan_id, coord, coord_float, feat, src_superpoint, object_id, gt_pmask, gt_spmask, sp_ref_mask, lang_tokens, answers, captions, sp_filename, gt_pmask_region, gt_spmask_region = list(data.values())
             
             superpoint = src_superpoint + superpoint_bias
             superpoint_bias = superpoint.max().item() + 1
@@ -251,7 +275,9 @@ class ThreeDReferDataset(BaseDataset):
             object_ids.append(object_id)
             
             gt_pmasks.append(gt_pmask)
+            gt_pmasks_region.append(gt_pmask_region)
             gt_spmasks.append(gt_spmask)
+            gt_spmasks_region.append(gt_spmask_region)
             sp_ref_masks.append(sp_ref_mask)
             answerss.extend(answers)
             text_input_list.append(captions)
@@ -282,7 +308,9 @@ class ThreeDReferDataset(BaseDataset):
             'batch_offsets': batch_offsets,
             'object_ids': object_ids,
             'gt_pmasks': gt_pmasks,
+            'gt_pmasks_region': gt_pmasks_region,
             'gt_spmasks': gt_spmasks,
+            'gt_spmasks_region': gt_spmasks_region,
             'sp_ref_masks': sp_ref_masks,
             "answer": answerss,
             "text_input": text_input_list,
@@ -301,10 +329,26 @@ QUESTION_LIST = [
     "Respond the segmentation mask of the object: {description}.",
 ]
 
+QUESTION_LIST = [
+    "### human: {description}. Identify the coarse region and segment the object described. ### assistant:",
+    "### human: {description}. Please provide the coarse location and the object's segmentation mask. ### assistant:",
+]
+
+QUESTION_LIST = [
+    "Identify the coarse region and segment the object described: {description}",
+    "Please provide the coarse location and the object's segmentation mask: {description}",
+]
+
 ANSWER_LIST = [
     "It is [SEG].",
     "Sure, [SEG].",
     "Sure, it is [SEG].",
     "Sure, the segmentation result is [SEG].",
     "[SEG].",
+]
+
+ANSWER_LIST = [
+    "The coarse location is [LOC], and the segmentation mask is [SEG].",
+    "Sure, the coarse region is [LOC]. Here is the segmentation mask: [SEG].",
+    "The object is coarsely located at [LOC], with segmentation mask: [SEG].",
 ]

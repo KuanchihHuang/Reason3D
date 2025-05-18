@@ -15,6 +15,7 @@ import torch
 
 @registry.register_task("3d_reason_seg")
 class ThreeDReasonSegTask(BaseTask):
+    
 
     def __init__(
         self,
@@ -92,7 +93,7 @@ class ThreeDReasonSegTask(BaseTask):
         pred_pmask = pred_spmask[samples["superpoints"]]
         piou = get_iou(pred_pmask, gt_pmask, pred_confidence = model.pred_confidence)
 
-        result = dict(scan_id=samples["scan_ids"][0], object_id=samples["object_ids"][0], ann_id=samples["ann_ids"][0], piou=piou, spiou=spiou, gt_pmask=gt_pmask, pred_pmask=pred_pmask, data_type=samples["data_types"][0])
+        result = dict(scan_id=samples["scan_ids"][0], object_id=samples["object_ids"][0], ann_id=samples["ann_ids"][0], piou=piou, spiou=spiou, gt_pmask=gt_pmask, pred_pmask=pred_pmask)
 
         if self.save_results:
             import pickle
@@ -115,37 +116,9 @@ class ThreeDReasonSegTask(BaseTask):
         pious = []
         spious = []
 
-        scannet_val_result = []
-        mp3d_val_result = []
-
-        for data in val_result:
-            if data['result']['data_type'] == 'scannet':
-                scannet_val_result.append(data)
-            else:
-                mp3d_val_result.append(data)
-
         print("===================================")
-        print(f"3D Reasoning segmentation on ScanNet ({len(scannet_val_result)} samples):")
-        for i, result in enumerate(scannet_val_result):
-            piou = result['result']['piou']
-            spiou = result['result']['spiou']
-            pious.append(piou)
-            spious.append(spiou)
-
-        pious = torch.stack(pious, dim=0).cpu().numpy()
-        precision_half = (pious > 0.5).sum().astype(float) / pious.size
-        precision_quarter = (pious > 0.25).sum().astype(float) / pious.size
-        miou = pious.mean()
-
-        print("Val result: mIoU/Acc50/Acc25 {:.4f}/{:.4f}/{:.4f}".format(
-            miou, precision_half, precision_quarter
-        ))
-        pious = []
-        spious = []
-
-        print("===================================")
-        print(f"3D Reasoning segmentation on Matterport3D ({len(mp3d_val_result)} samples):")
-        for i, result in enumerate(mp3d_val_result):
+        print(f"3D Reasoning segmentation (Search) on Matterport3D ({len(val_result)} samples):")
+        for i, result in enumerate(val_result):
             piou = result['result']['piou']
             spiou = result['result']['spiou']
             pious.append(piou)

@@ -19,6 +19,7 @@ class MaskDecoder(nn.Module):
         super().__init__()
         self.num_layer = num_layer
         self.input_proj = nn.Sequential(nn.Linear(media, d_model), nn.LayerNorm(d_model), nn.ReLU())
+        self.region_mask_proj = nn.Sequential(nn.Linear(1, media), nn.LayerNorm(media), nn.ReLU())
         self.lang_proj = nn.Linear(d_text, d_model)
 
         self.sa_layers = nn.ModuleList([])
@@ -78,9 +79,15 @@ class MaskDecoder(nn.Module):
         pred_masks, attn_masks = self.get_mask(query, mask_feats, batch_mask)
         return pred_scores, pred_masks, attn_masks
     
-    def forward(self, sp_feats, batch_offsets, text_features=None, **kwargs):    
+    def forward(self, sp_feats, batch_offsets, text_features=None, region=None):    
         
         x = sp_feats
+
+        if region != None:
+            region_proj = self.region_mask_proj(region)
+            x = x + region_proj
+
+
         batch_lap_pos_enc = None
         query = self.lang_proj(text_features)              
         inst_feats = self.input_proj(x)
