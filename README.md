@@ -1,4 +1,4 @@
-<p align="center">
+lign="center">
   <h1 align="center">Reason3D: Searching and Reasoning 3D Segmentation via Large Language Model [3DV 2025]
   </h1>
   <p align="center">
@@ -25,6 +25,12 @@ This branch contains the hierarchical searching code of our Reason3D model.
 We introduce Reason3D, a novel LLM for comprehensive 3D understanding that processes point cloud data and text prompts to produce textual responses and segmentation masks. This enables advanced tasks such as 3D reasoning segmentation, hierarchical searching, referring expressions, and question answering with detailed mask outputs.
 
 ## Installation
+
+0. Clone this repo and checkout to search branch.
+```bash
+git clone https://github.com/KuanchihHuang/Reason3D
+git checkout search
+```
 
 1. Create conda environment. We use `python=3.8` `pytorch=1.11.0` and `cuda=11.3`.
 ```bash
