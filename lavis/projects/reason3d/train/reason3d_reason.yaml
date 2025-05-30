@@ -39,11 +39,11 @@ datasets:
     build_info:
         annotations:
           train:
-            storage: ScanRefer/ScanRefer_filtered_train.json
+            storage: reason3d_search/mp3d_room_train.json
           test:
-            storage: ScanRefer/ScanRefer_filtered_val.json
+            storage: reason3d_search/mp3d_room_val.json
           val:
-            storage: ScanRefer/ScanRefer_filtered_val.json
+            storage: reason3d_search/mp3d_room_val.json
 
 run:
   task: 3d_reason_seg
